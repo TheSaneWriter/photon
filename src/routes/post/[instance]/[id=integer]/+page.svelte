@@ -4,7 +4,7 @@
   import { isImage, isVideo } from '$lib/ui/image.js'
   import { getClient } from '$lib/lemmy.js'
   import CommentForm from '$lib/components/lemmy/comment/CommentForm.svelte'
-  import { onMount } from 'svelte'
+  import { createEventDispatcher, onMount } from 'svelte'
   import Markdown from '$lib/components/markdown/Markdown.svelte'
   import { page } from '$app/stores'
   import PostActions from '$lib/components/lemmy/post/PostActions.svelte'
@@ -43,13 +43,15 @@
         post_id: post.post_view.post.id,
       })
     }
+
+    if (data.streamed.comments == undefined) reloadComments()
   })
 
   afterNavigate(async () => {
     // reactivity hack
     post = data.post
 
-    if ($page.params.instance.toLowerCase() != $instance.toLowerCase()) {
+    if (data.instance != $instance.toLowerCase()) {
       if (!$profile?.jwt) return
       toast({
         content: 'Do you want to open this post on your home instance?',
@@ -105,6 +107,8 @@
   }
 
   let showCreateComment = false
+
+  const dispatcher = createEventDispatcher<{ back: any }>()
 </script>
 
 <svelte:head>
@@ -120,7 +124,7 @@
 </svelte:head>
 
 <div class="flex flex-col gap-2">
-  {#if $page.params.instance.toLowerCase() != $instance.toLowerCase()}
+  {#if data.instance.toLowerCase() != $instance.toLowerCase()}
     <Material
       class="p-4 flex flex-col gap-1 border
     border-yellow-300 dark:bg-yellow-950/30 dark:border-yellow-900 bg-yellow-50"
@@ -158,9 +162,10 @@
       />
     </div>
     <Button
-      on:click={() => history.back()}
+      on:click={() => {
+        dispatcher('back')
+      }}
       size="square-md"
-      class={history.length < 3 ? 'hidden' : ''}
     >
       <Icon src={ArrowLeft} mini size="16" slot="prefix" />
     </Button>
@@ -237,7 +242,7 @@
             </span>
             <Link
               class="text-sm"
-              href="/post/{$page.params.instance}/{crosspost.post.id}"
+              href="/post/{data.instance}/{crosspost.post.id}"
             >
               {crosspost.post.name}
             </Link>
@@ -283,51 +288,53 @@
       <Spinner width={24} />
     </div>
   {:then comments}
-    {#if $profile?.user}
-      {#if showCreateComment}
-        <CommentForm
-          postId={post.post_view.post.id}
-          on:comment={(comment) =>
-            (comments.comments = [
-              comment.detail.comment_view,
-              ...comments.comments,
-            ])}
-          locked={post.post_view.post.locked ||
-            $page.params.instance.toLowerCase() != $instance.toLowerCase()}
-        />
-      {:else}
-        <Button
-          on:click={() => (showCreateComment = !showCreateComment)}
-          class="w-max"
-          size="lg"
-          rounding="lg"
-        >
-          <Icon src={Plus} size="16" mini slot="prefix" />
-          Add a comment
-        </Button>
-      {/if}
-    {/if}
-    {#await buildCommentsTreeAsync(comments.comments)}
-      <div class="h-16 mx-auto grid place-items-center">
-        <Spinner width={36} />
-      </div>
-    {:then comments}
-      <Comments post={post.post_view.post} nodes={comments} isParent={true} />
-      {#if comments.length > 5}
-        <EndPlaceholder>
-          You've viewed {post.post_view.counts.comments} comments.
-
+    {#if comments}
+      {#if $profile?.user}
+        {#if showCreateComment}
+          <CommentForm
+            postId={post.post_view.post.id}
+            on:comment={(comment) =>
+              (comments.comments = [
+                comment.detail.comment_view,
+                ...comments.comments,
+              ])}
+            locked={post.post_view.post.locked ||
+              data.instance.toLowerCase() != $instance.toLowerCase()}
+          />
+        {:else}
           <Button
-            color="tertiary"
-            on:click={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            slot="action"
+            on:click={() => (showCreateComment = !showCreateComment)}
+            class="w-max"
+            size="lg"
+            rounding="lg"
           >
-            <Icon src={ChevronDoubleUp} mini size="16" slot="prefix" />
-            Scroll to top
+            <Icon src={Plus} size="16" mini slot="prefix" />
+            Add a comment
           </Button>
-        </EndPlaceholder>
+        {/if}
       {/if}
-    {/await}
+      {#await buildCommentsTreeAsync(comments.comments)}
+        <div class="h-16 mx-auto grid place-items-center">
+          <Spinner width={36} />
+        </div>
+      {:then comments}
+        <Comments post={post.post_view.post} nodes={comments} isParent={true} />
+        {#if comments.length > 5}
+          <EndPlaceholder>
+            You've viewed {post.post_view.counts.comments} comments.
+
+            <Button
+              color="tertiary"
+              on:click={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              slot="action"
+            >
+              <Icon src={ChevronDoubleUp} mini size="16" slot="prefix" />
+              Scroll to top
+            </Button>
+          </EndPlaceholder>
+        {/if}
+      {/await}
+    {/if}
   {:catch}
     <div class="bg-red-500/10 border border-red-500 rounded-md p-4">
       Failed to load comments.

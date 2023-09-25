@@ -2,7 +2,7 @@ import { goto } from '$app/navigation'
 import { toast } from 'mono-svelte'
 import { userSettings } from '$lib/settings.js'
 import { get } from 'svelte/store'
-import type { SubscribedType } from 'lemmy-js-client'
+import type { GetPostResponse, PostView, SubscribedType } from 'lemmy-js-client'
 import { page } from '$app/stores'
 
 export const findClosestNumber = (numbers: number[], target: number): number =>
@@ -130,3 +130,33 @@ export const routes = {
   '/profile/settings': 'Profile Settings',
   '/profile/blocks': 'Blocks',
 }
+
+/**
+ * This is to get a placeholder while the full data loads.
+ */
+export const getPostsResponseFromView = (
+  post: PostView,
+  instance: string
+): GetPostResponse => ({
+  community_view: {
+    blocked: false,
+    counts: {
+      comments: 0,
+      community_id: 0,
+      hot_rank: 0,
+      id: 0,
+      posts: 0,
+      published: '',
+      subscribers: 0,
+      users_active_day: 0,
+      users_active_half_year: 0,
+      users_active_month: 0,
+      users_active_week: 0,
+    },
+    community: post.community,
+    subscribed: post.subscribed,
+  },
+  cross_posts: [],
+  moderators: [],
+  post_view: post,
+})
